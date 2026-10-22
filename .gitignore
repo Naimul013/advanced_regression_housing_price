@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtual environments and secrets
+.venv/
+venv/
+env/
+.env
+secrets.yaml
+*.pem
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dataset files
+data/
+
+# Model artifacts
+models/
+
+# Logs and generated outputs
+logs/
+catboost_info/
+result/
+submissions/
+tuned_model_validation.csv
+
+# IDE and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Generated reports (keep other reports and notebooks)
+reports/figures/*.png
+reports/metrics/*.json
+
+# Optuna experiment database
+reports/*.db

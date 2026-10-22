@@ -1,0 +1,21 @@
+{
+    "model_name": "GradientBoostingRegressor",
+    "training_rows": 1460,
+    "feature_count": 80,
+    "target_column": "SalePrice",
+    "optuna_study_name": "housing_gradient_boosting",
+    "best_trial_number": 60,
+    "best_cv_rmsle": 0.12443353720121894,
+    "best_params": {
+        "n_estimators": 399,
+        "learning_rate": 0.04868049797146487,
+        "max_depth": 4,
+        "min_samples_split": 3,
+        "min_samples_leaf": 1,
+        "subsample": 0.6918114524880262
+    },
+    "historical_validation_rmsle": 0.135991,
+    "validation_score_note": "Historical model-selection score from the holdout validation partition. It is not an independent evaluation of this final model, which was trained on all labelled rows.",
+    "trained_at_utc": "2026-10-22T03:35:16.598525+00:00",
+    "artifact_path": "models/gradient_boosting_final.joblib"
+}
