@@ -43,3 +43,5 @@ reports/metrics/*.json
 
 # Optuna experiment database
 reports/*.db
+
+*:Zone.Identifier
