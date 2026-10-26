@@ -254,6 +254,7 @@ The project uses centralized configuration and records experiment outputs to sup
 - Use nested cross-validation for an unbiased estimate of the tuned model.
 - Add tests for the data-loading and tuning modules, which currently need Kaggle credentials.
 - Track experiments with a dedicated tool such as MLflow instead of JSON and CSV files.
+- eda notebook is very messy, I kept it like that deliberately as at different stages i had to change my strategy. That is something i will be working next.
 
 ## Author
 
