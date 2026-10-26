@@ -1,5 +1,9 @@
 # House Prices: Advanced Regression
 
+![CI](https://github.com/Naimul013/advanced_regression_housing_price/actions/workflows/ci.yml/badge.svg)
+
+**Kaggle public leaderboard score: 0.12846 (RMSLE)** · Tuned `GradientBoostingRegressor` · 6 model families benchmarked · Optuna tuning · YAML-driven pipeline with unit tests
+
 A configuration-driven machine learning project for predicting residential property prices using the Kaggle **House Prices: Advanced Regression Techniques** competition.
 
 The project explores an end-to-end regression workflow, including exploratory data analysis, preprocessing, model benchmarking, cross-validation, hyperparameter optimization, model evaluation, and Kaggle submission generation.
@@ -37,14 +41,14 @@ The dataset contains numerical and categorical property characteristics. The tar
 advanced_regression_housing_price/
 ├── config/
 │   └── config.yaml
+├── docs/images/               # figures used in this README
 ├── notebook/
 │   └── eda.ipynb
 ├── reports/
 │   ├── best_hyperparameters.json
 │   ├── cross_validation_results.csv
 │   ├── final_model_metadata.json
-│   ├── optuna_studies.db
-│   └── optuna_trials.csv
+│   └── optuna_trials.csv      # (optuna_studies.db is generated locally, not committed)
 ├── src/
 │   ├── config_loader.py
 │   ├── cross_validation.py
@@ -56,14 +60,16 @@ advanced_regression_housing_price/
 │   ├── logger.py
 │   ├── main.py
 │   ├── models.py
-│   ├── playground.py
 │   ├── preprocessor.py
 │   ├── split.py
 │   ├── submission.py
 │   ├── train.py
 │   └── tuning.py
+├── tests/                     # pytest unit tests
+├── .github/workflows/ci.yml   # runs the tests on every push
 ├── requirements.txt
-└── .gitignore
+├── requirements-dev.txt
+└── LICENSE
 ```
 
 Generated datasets, model artifacts, logs, and other outputs may be stored locally and are excluded from version control according to `.gitignore`.
@@ -132,20 +138,46 @@ The tuning results and experiment artifacts are stored in the `reports/` directo
 
 `src/submission.py` handles submission-related functionality. The generated submission must contain the competition's identifier column, `Id`, and the predicted target column, `SalePrice`.
 
-## Results
+## Feature Engineering and Preprocessing
 
-The following results were recorded during development.
+All preprocessing lives in `src/preprocessor.py` as scikit-learn transformers, so the same steps are applied during training, cross-validation and prediction. Feature lists and category orders are defined in `config/config.yaml`, not in code.
+
+- **Structural features:** `GarageExist` and `BsmtExist` flags derived from whether the garage year and basement condition are present; missing garage/basement numerics are set to 0 and missing categories to `"None"`, because a missing value here means the house has no garage or basement.
+- **Masonry veneer repair:** `MasVnrFeatureEngineer` fixes inconsistent area/type pairs, for example filling a missing type from the most frequent type when the area is large, and estimating a zero area from the median area of that type.
+- **LotFrontage imputation:** neighbourhood median, falling back to the overall median for unseen neighbourhoods.
+- **Skewness:** `log1p` transform on `LotFrontage`, `MiscVal` and `LotArea`.
+- **Ordinal encoding:** quality, exposure, basement finish, garage finish, fence and paved-drive columns are encoded with explicit category orders rather than arbitrary integers.
+
+## Results
 
 | Evaluation | RMSLE |
 |---|---:|
 | Baseline validation | 0.138690 |
-| Tuned Gradient Boosting validation | 0.135991 |
-| Best recorded cross-validation result | 0.124434 |
-| Kaggle public leaderboard score | 0.12846 |
+| Tuned Gradient Boosting validation (20% holdout) | 0.135991 |
+| Best Optuna trial, 5-fold cross-validation | 0.124434 |
+| **Kaggle public leaderboard** | **0.12846** |
 
-The tuned Gradient Boosting model improved the recorded validation RMSLE by approximately **1.95%** relative to the baseline.
+Tuning improved the holdout validation RMSLE by about **1.95%** over the baseline (0.138690 to 0.135991).
 
-Cross-validation, validation-set evaluation, and Kaggle leaderboard scores measure performance in different ways. They should not be treated as directly interchangeable.
+![Optuna optimisation history](docs/images/optuna_history.png)
+
+![Cross-validation comparison of the top three models](docs/images/cv_comparison.png)
+
+**How to read these numbers**
+
+- Six model families were benchmarked on one holdout split. The three strongest (Gradient Boosting, HistGradientBoosting, XGBoost) were cross-validated, and Gradient Boosting was tuned with Optuna.
+- The 0.1244 cross-validation figure is the best of 68 completed trials, selected on the same folds it is scored on, so it is optimistic. The holdout score and the Kaggle leaderboard score are the more honest estimates.
+- The three scores are measured differently and are not directly interchangeable.
+- The final model is trained on all 1,460 labelled rows, so it has no separate validation score.
+
+## Testing
+
+```
+pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+The tests cover the custom transformers (`StructuralFeatureEngineer`, `MasVnrFeatureEngineer`, `LotFrontageImputer`, `SkewnessTransformer`, ordinal encoding), the Kaggle submission checks (schema, row count, negative and non-finite predictions) and the configuration file. They run automatically on every push through GitHub Actions.
 
 ## Tech Stack
 
@@ -201,9 +233,15 @@ Review `config/config.yaml` and adjust the dataset, paths, experiment settings, 
 
 ### 6. Run the workflow
 
-The implementation is organized into separate Python modules for data loading, training, evaluation, cross-validation, tuning, finalization, and submission generation.
+Run every command from the project root, using `python -m` so the `src` package imports resolve. Each step reads its settings from `config/config.yaml`.
 
-Run the appropriate workflow entry point for the experiment you want to execute. The exact execution sequence depends on the configuration and the functions exposed by each module.
+| Step | Command | What it does |
+|---|---|---|
+| 1 | `python -m src.main` | Downloads the data, benchmarks baseline and candidate models, cross-validates the top three, writes `reports/cross_validation_results.csv` |
+| 2 | `python -m src.tuning` | Runs Optuna trials for `GradientBoostingRegressor`, writes `reports/best_hyperparameters.json` and `reports/optuna_trials.csv` |
+| 3 | `python -m src.evaluate_tuned_model` | Scores the tuned model on the held-out validation split |
+| 4 | `python -m src.finalize_model` | Retrains the tuned model on all labelled rows and saves it with metadata |
+| 5 | `python -m src.submission` | Validates predictions and writes `submissions/submission.csv` for Kaggle |
 
 ## Reproducibility
 
@@ -211,17 +249,16 @@ The project uses centralized configuration and records experiment outputs to sup
 
 ## Limitations and Future Improvements
 
-Potential areas for further improvement include:
-
-- Strengthening preprocessing and feature-engineering tests.
-- Adding automated tests for important pipeline components.
-- Improving experiment tracking and artifact management.
-- Validating dependency compatibility in a clean environment.
-- Comparing performance across multiple validation strategies.
-- Improving documentation of the end-to-end execution sequence.
+- Only `GradientBoostingRegressor` was tuned; tuning XGBoost, LightGBM and CatBoost the same way is the obvious next experiment.
+- Try an ensemble (stacking or blending) of the strongest tuned models.
+- Use nested cross-validation for an unbiased estimate of the tuned model.
+- Add tests for the data-loading and tuning modules, which currently need Kaggle credentials.
+- Track experiments with a dedicated tool such as MLflow instead of JSON and CSV files.
 
 ## Author
 
-**Naimul Islam**
+**Md Naimul Islam Nahid**
 
-GitHub: [@Naimul013](https://github.com/Naimul013)
+AI undergraduate, University of Greenwich (London)
+
+GitHub: [@Naimul013](https://github.com/Naimul013) · [LinkedIn](https://www.linkedin.com/in/md-naimul-islam-nahid)
